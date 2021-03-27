@@ -1,135 +1,32 @@
-use chrono::prelude::*;
+mod render;
+mod db;
+mod ark;
+
+use crate::db::{add_ark_server_mod_to_db, remove_ark_server_mod_at_index, read_db, add_ark_server_to_db, remove_ark_server_at_index};
+use crate::ark::{Event, MenuItem};
+
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-//use rand::{distributions::Alphanumeric, prelude::*};
-use serde::{Deserialize, Serialize};
-use std::fs;
 use std::io;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
-use thiserror::Error;
 use tui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{
-        Block, BorderType, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, Tabs, TableState,
+        Block, BorderType, Borders, ListState, Paragraph, Tabs, TableState,
     },
     Terminal,
 };
 
+
 const DB_PATH: &str = "./data/db.json";
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("error reading the DB file: {0}")]
-    ReadDBError(#[from] io::Error),
-    #[error("error parsing the DB file: {0}")]
-    ParseDBError(#[from] serde_json::Error),
-    #[error("error, invalid selection")]
-    SelectionError,
-}
-
-enum Event<I> {
-    Input(I),
-    Tick,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct ArkServerMod {
-    id: usize,
-    name: String,
-    category: String,
-    descripton: String,
-    enabled: bool,
-    age: usize,
-    created_at: DateTime<Utc>,
-}
-
-impl ArkServerMod {
-    fn named(name: &str) -> ArkServerMod {
-        ArkServerMod {
-            id: 0,
-            name: name.to_string(),
-            category: "".to_string(),
-            descripton: "".to_string(),
-            enabled: false,
-            age: 0,
-            created_at: Utc::now(),
-        }
-    }
-    fn new() -> ArkServerMod {
-        ArkServerMod {
-            id: 0,
-            name: "".to_string(),
-            category: "".to_string(),
-            descripton: "".to_string(),
-            enabled: false,
-            age: 0,
-            created_at: Utc::now(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct ArkServer {
-    id: usize,
-    name: String,
-    category: String,
-    age: usize,
-    created_at: DateTime<Utc>,
-    mods: Vec<ArkServerMod>,
-}
-
-impl ArkServer {
-    fn named(name: &str) -> ArkServer {
-        ArkServer {
-            id: 0,
-            name: name.to_string(),
-            category: "".to_string(),
-            age: 0,
-            created_at: Utc::now(),
-            mods: Vec::new(),
-        }
-    }
-    fn new() -> ArkServer {
-        ArkServer {
-            id: 0,
-            name: "".to_string(),
-            category: "".to_string(),
-            age: 0,
-            created_at: Utc::now(),
-            mods: Vec::new(),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-enum MenuItem {
-    Home,
-    Servers,
-    ViewServer,
-    ServerMods,
-    ViewMod,
-    EditMod,
-}
-
-impl From<MenuItem> for usize {
-    fn from(input: MenuItem) -> usize {
-        match input {
-            MenuItem::Home => 0,
-            MenuItem::Servers => 1,
-            MenuItem::ServerMods => 2,
-            MenuItem::ViewServer => 3,
-            MenuItem::ViewMod => 4,
-            MenuItem::EditMod => 5,
-        }
-    }
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode().expect("can run in raw mode");
@@ -150,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             if last_tick.elapsed() >= tick_rate {
-                if let Ok(_) = tx.send(Event::Tick) {
+                if let Ok(_) = tx.send(ark::Event::Tick) {
                     last_tick = Instant::now();
                 }
             }
@@ -237,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 MenuItem::Home => {
                     menu_titles = vec!["Home", "Servers", "Quit"];
                     active_menu_highlight = MenuItem::Home;
-                    rect.render_widget(render_home(), chunks[1]);
+                    rect.render_widget(render::home(), chunks[1]);
                 }
                 MenuItem::Servers => {
                     menu_titles = vec!["Home", "Servers", "Add", "Delete", "Quit"];
@@ -248,14 +145,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                         )
                         .split(chunks[1]);
-                    let (left, right) = render_ark_servers(&ark_server_list_state);
+                    let (left, right) = render::ark_servers(&ark_server_list_state);
                     rect.render_stateful_widget(left, ark_servers_chunks[0], &mut ark_server_list_state);
                     rect.render_widget(right, ark_servers_chunks[1]);
                 }
                 MenuItem::ViewServer => {
                     menu_titles = vec!["Home", "Servers", "Mods", "Back", "Quit"];
                     active_menu_highlight = MenuItem::Servers;
-                    rect.render_widget(render_view_ark_server(&ark_server_list_state), chunks[1]);
+                    rect.render_widget(render::view_ark_server(&ark_server_list_state), chunks[1]);
                 }
                 MenuItem::ServerMods => {
                     menu_titles = vec!["Home", "Servers", "Mods", "Add", "Delete", "Back", "Quit"];
@@ -266,19 +163,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                         )
                         .split(chunks[1]);
-                    let (left, right) = render_ark_server_mods(&ark_server_list_state, &ark_server_mod_list_state);
+                    let (left, right) = render::ark_server_mods(&ark_server_list_state, &ark_server_mod_list_state);
                     rect.render_stateful_widget(left, ark_servers_chunks[0], &mut ark_server_mod_list_state);
                     rect.render_widget(right, ark_servers_chunks[1]);
                 }
                 MenuItem::ViewMod => {
                     menu_titles = vec!["Home", "Servers", "Mods", "Toggle", "Edit", "Back", "Quit"];
                     active_menu_highlight = MenuItem::ServerMods;
-                    rect.render_widget(render_view_ark_server_mod(&ark_server_list_state, &ark_server_mod_list_state), chunks[1]);
+                    rect.render_widget(render::view_ark_server_mod(&ark_server_list_state, &ark_server_mod_list_state), chunks[1]);
                 }
                 MenuItem::EditMod => {
                     menu_titles = vec!["Home", "Servers", "Mods", "Back", "Quit"];
                     active_menu_highlight = MenuItem::ServerMods;
-                    let left = render_edit_ark_server_mod(&ark_server_list_state, &ark_server_mod_list_state);
+                    let left = render::edit_ark_server_mod(&ark_server_list_state, &ark_server_mod_list_state);
                     rect.render_stateful_widget(left, chunks[1], &mut ark_server_mod_list_edit_state);
                 }
             }
@@ -287,7 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if editing_server {
             match rx.recv()? {
-                Event::Input(event) => match event.code {
+                ark::Event::Input(event) => match event.code {
                     KeyCode::Enter => {
                         editing_server = false;
                     }
@@ -297,11 +194,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         tmp_server_field += get_input_char(event.code);
                     }
                 },
-                Event::Tick => {}
+                ark::Event::Tick => {}
             }
         } else if editing_mod {
             match rx.recv()? {
-                Event::Input(event) => match event.code {
+                ark::Event::Input(event) => match event.code {
                     KeyCode::Enter => {
                         editing_mod = false;
                     }
@@ -309,12 +206,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         tmp_mod_field += get_input_char(event.code);
                     }
                 },
-                Event::Tick => {}
+                ark::Event::Tick => {}
             }
 
         } else {
             match rx.recv()? {
-                Event::Input(event) => match event.code {
+                ark::Event::Input(event) => match event.code {
                     KeyCode::Char('q') => {
                         disable_raw_mode()?;
                         terminal.show_cursor()?;
@@ -481,7 +378,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 },
-                Event::Tick => {}
+                ark::Event::Tick => {}
             }
         }
     }
@@ -495,456 +392,4 @@ fn get_input_char(code: KeyCode) -> &'static str {
         KeyCode::Char('b') => return "b",
         _ => return "",
     }
-}
-
-fn render_home<'a>() -> Paragraph<'a> {
-    let home = Paragraph::new(vec![
-        Spans::from(vec![Span::raw("")]),
-        Spans::from(vec![Span::raw("Welcome")]),
-        Spans::from(vec![Span::raw("")]),
-        Spans::from(vec![Span::raw("to")]),
-        Spans::from(vec![Span::raw("")]),
-        Spans::from(vec![Span::styled(
-            "ark_server-CLI",
-            Style::default().fg(Color::LightBlue),
-        )]),
-        Spans::from(vec![Span::raw("")]),
-    ])
-    .alignment(Alignment::Center)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Home")
-            .border_type(BorderType::Plain),
-    );
-    home
-}
-
-fn render_view_ark_server<'a>(ark_server_list_state: &ListState) -> Table<'a> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let mods_str = selected_ark_server.mods.into_iter().map(|i| i.name + &", ".to_string()).collect::<String>();
-
-    let ark_server_detail = Table::new(vec![
-        Row::new(vec![
-            Cell::from(Span::raw("ID:".to_string())),
-            Cell::from(Span::raw(selected_ark_server.id.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Name:".to_string())),
-            Cell::from(Span::raw(selected_ark_server.name)),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Category:".to_string())),
-            Cell::from(Span::raw(selected_ark_server.category)),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Age:".to_string())),
-            Cell::from(Span::raw(selected_ark_server.age.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Created At:".to_string())),
-            Cell::from(Span::raw(selected_ark_server.created_at.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Mods:".to_string())),
-            Cell::from(Span::raw(mods_str)),
-        ]),
-    ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Server Detail")
-            .border_type(BorderType::Plain),
-    )
-    .widths(&[
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-    ]);
-
-    ark_server_detail
-}
-
-fn render_edit_ark_server_mod<'a>(ark_server_list_state: &ListState, ark_server_mod_list_state: &ListState) -> Table<'a> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let selected_ark_server_mod = selected_ark_server.mods
-        .get(
-            ark_server_mod_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let ark_server_mod_detail = Table::new(vec![
-        Row::new(vec![
-            Cell::from(Span::raw("ID:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.id.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Name:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.name)),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Category:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.category)),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Age:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.age.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Created At:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.created_at.to_string())),
-        ]),
-    ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Mod Detail")
-            .border_type(BorderType::Plain),
-    )
-    .highlight_style(
-        Style::default()
-            .bg(Color::Yellow)
-            .fg(Color::Black)
-            .add_modifier(Modifier::BOLD),
-    )
-    .widths(&[
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-    ]);
-
-    ark_server_mod_detail
-}
-
-fn render_view_ark_server_mod<'a>(ark_server_list_state: &ListState, ark_server_mod_list_state: &ListState) -> Table<'a> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let selected_ark_server_mod = selected_ark_server.mods
-        .get(
-            ark_server_mod_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let ark_server_mod_detail = Table::new(vec![
-        Row::new(vec![
-            Cell::from(Span::raw("ID:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.id.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Name:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.name)),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Category:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.category)),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Age:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.age.to_string())),
-        ]),
-        Row::new(vec![
-            Cell::from(Span::raw("Created At:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.created_at.to_string())),
-        ]),
-    ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Mod Detail")
-            .border_type(BorderType::Plain),
-    )
-    .widths(&[
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-    ]);
-
-    ark_server_mod_detail
-}
-
-fn render_ark_server_mods<'a>(ark_server_list_state: &ListState, ark_server_mod_list_state: &ListState) -> (List<'a>, Table<'a>) {
-    let ark_server_mods = Block::default()
-        .borders(Borders::ALL)
-        .style(Style::default().fg(Color::White))
-        .title("Server Mods")
-        .border_type(BorderType::Plain);
-
-    let ark_server_list = read_db().expect("can fetch ark_server list");
-
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let items: Vec<_> = selected_ark_server.mods
-        .iter()
-        .map(|ark_server| {
-            ListItem::new(Spans::from(vec![Span::styled(
-                ark_server.name.clone(),
-                Style::default(),
-            )]))
-        })
-        .collect();
-
-    let list = List::new(items).block(ark_server_mods).highlight_style(
-        Style::default()
-            .bg(Color::Yellow)
-            .fg(Color::Black)
-            .add_modifier(Modifier::BOLD),
-    );
-
-    let selected_ark_server_mod = if selected_ark_server.mods.len() > 0 {
-        selected_ark_server.mods
-            .get(
-                ark_server_mod_list_state
-                    .selected()
-                    .expect("there is always a selected ark_server"),
-            )
-            .expect("exists")
-            .clone()
-    } else { ArkServerMod::new() };
-
-    let ark_server_mod_detail = if selected_ark_server_mod.id != 0 {
-        Table::new(vec![Row::new(vec![
-            Cell::from(Span::raw(selected_ark_server_mod.id.to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.name)),
-            Cell::from(Span::raw(selected_ark_server_mod.category)),
-            Cell::from(Span::raw(selected_ark_server_mod.age.to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.created_at.to_string())),
-        ])])
-    } else {
-        Table::new(vec![Row::new(vec![
-            Cell::from(Span::raw("".to_string())),
-            Cell::from(Span::raw("".to_string())),
-            Cell::from(Span::raw("".to_string())),
-            Cell::from(Span::raw("".to_string())),
-            Cell::from(Span::raw("".to_string())),
-        ])])
-    }
-    .header(Row::new(vec![
-        Cell::from(Span::styled(
-            "ID",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Name",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Category",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Age",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Created At",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-    ]))
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Mod Detail")
-            .border_type(BorderType::Plain),
-    )
-    .widths(&[
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-    ]);
-    (list, ark_server_mod_detail)
-
-}
-
-fn render_ark_servers<'a>(ark_server_list_state: &ListState) -> (List<'a>, Table<'a>) {
-    let ark_servers = Block::default()
-        .borders(Borders::ALL)
-        .style(Style::default().fg(Color::White))
-        .title("Servers")
-        .border_type(BorderType::Plain);
-
-    let ark_server_list = read_db().expect("can fetch ark_server list");
-    let items: Vec<_> = ark_server_list
-        .iter()
-        .map(|ark_server| {
-            ListItem::new(Spans::from(vec![Span::styled(
-                ark_server.name.clone(),
-                Style::default(),
-            )]))
-        })
-        .collect();
-
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
-    let list = List::new(items).block(ark_servers).highlight_style(
-        Style::default()
-            .bg(Color::Yellow)
-            .fg(Color::Black)
-            .add_modifier(Modifier::BOLD),
-    );
-    let mods_str = selected_ark_server.mods.len().to_string();
-
-    let ark_server_detail = Table::new(vec![Row::new(vec![
-        Cell::from(Span::raw(selected_ark_server.id.to_string())),
-        Cell::from(Span::raw(selected_ark_server.name)),
-        Cell::from(Span::raw(selected_ark_server.category)),
-        Cell::from(Span::raw(selected_ark_server.age.to_string())),
-        Cell::from(Span::raw(selected_ark_server.created_at.to_string())),
-        Cell::from(Span::raw(mods_str)),
-    ])])
-    .header(Row::new(vec![
-        Cell::from(Span::styled(
-            "ID",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Name",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Category",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Age",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Created At",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Cell::from(Span::styled(
-            "Mods",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-    ]))
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Server Detail")
-            .border_type(BorderType::Plain),
-    )
-    .widths(&[
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(5),
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-    ]);
-
-    (list, ark_server_detail)
-}
-
-fn read_db() -> Result<Vec<ArkServer>, Error> {
-    let db_content = fs::read_to_string(DB_PATH)?;
-    let parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
-    Ok(parsed)
-}
-
-fn add_ark_server_to_db() -> Result<Vec<ArkServer>, Error> {
-    let db_content = fs::read_to_string(DB_PATH)?;
-    let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
-    parsed.push(ArkServer::named("New Server"));
-    fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
-    Ok(parsed)
-}
-
-fn remove_ark_server_at_index(ark_server_list_state: &mut ListState) -> Result<(), Error> {
-    if let Some(selected) = ark_server_list_state.selected() {
-        let db_content = fs::read_to_string(DB_PATH)?;
-        let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
-        parsed.remove(selected);
-        fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
-        ark_server_list_state.select(Some(selected - 1));
-        return Ok(())
-    }
-    return Err(Error::SelectionError)
-}
-
-fn add_ark_server_mod_to_db(ark_server_list_state: &ListState) -> Result<Vec<ArkServer>, Error> {
-    if let Some(selected_server) = ark_server_list_state.selected() {
-        let db_content = fs::read_to_string(DB_PATH)?;
-        let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
-        parsed[selected_server].mods.push(ArkServerMod::named("New Mod"));
-        fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
-        return Ok(parsed)
-    }
-    return Err(Error::SelectionError)
-}
-
-fn remove_ark_server_mod_at_index(ark_server_list_state: &mut ListState, ark_server_mod_list_state: &mut ListState) -> Result<(), Error> {
-    if let Some(selected_server) = ark_server_list_state.selected() {
-        if let Some(selected_mod) = ark_server_mod_list_state.selected() {
-            let db_content = fs::read_to_string(DB_PATH)?;
-            let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
-            parsed[selected_server].mods.remove(selected_mod);
-            fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
-            if selected_mod > 0 {
-                ark_server_mod_list_state.select(Some(selected_mod - 1));
-            }
-            return Ok(())
-        }
-    }
-    return Err(Error::SelectionError)
 }

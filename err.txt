@@ -1,27 +1,13 @@
-   Compiling rust-commandline-example v0.1.0 (/home/nan0scho1ar/repos/rust-commandline-example)
-warning: unused variable: `ark_servers`
-   --> src/main.rs:626:9
-    |
-626 |     let ark_servers = Block::default()
-    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ark_servers`
-    |
-    = note: `#[warn(unused_variables)]` on by default
-
-warning: unused variable: `selected_server`
-   --> src/main.rs:942:17
-    |
-942 |     if let Some(selected_server) = ark_server_list_state.selected() {
-    |                 ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_selected_server`
-
+   Compiling ark-manager v0.1.0 (/home/nan0scho1ar/repos/rust-commandline-example)
 warning: associated function is never used: `new`
-  --> src/main.rs:76:8
+  --> src/ark.rs:78:12
    |
-76 |     fn new() -> ArkServer {
-   |        ^^^
+78 |     pub fn new() -> ArkServer {
+   |            ^^^
    |
    = note: `#[warn(dead_code)]` on by default
 
-warning: 3 warnings emitted
+warning: 1 warning emitted
 
-    Finished dev [unoptimized + debuginfo] target(s) in 3.04s
-     Running `target/debug/rust-commandline-example`
+    Finished dev [unoptimized + debuginfo] target(s) in 3.05s
+     Running `target/debug/ark-manager`
