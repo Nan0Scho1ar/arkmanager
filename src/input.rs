@@ -93,6 +93,15 @@ pub fn process_view_server(state: &mut ProgState, event: crossterm::event::KeyEv
         KeyCode::Char('e') => {
             state.active_menu_item = MenuItem::EditServer
         }
+        KeyCode::Char('s') => {
+            start_ark_server(&state).expect("can start ark_server");
+        }
+        KeyCode::Char('k') => {
+            stop_ark_server(&state).expect("can start ark_server");
+        }
+        KeyCode::Char('r') => {
+            restart_ark_server(&state).expect("can restart ark_server");
+        }
         _ => {}
     }
     Ok(())

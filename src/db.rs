@@ -127,6 +127,11 @@ pub fn get_server_mod(state: &ProgState) -> Result<ArkServerMod, Error> {
     return Ok(selected_ark_server_mod)
 }
 
+pub fn get_server_service_name(state: &ProgState) -> Result<String, Error> {
+    let selected_ark_server = get_server(state).expect("Server has mod");
+    Ok(selected_ark_server.service_name.to_string())
+}
+
 pub fn get_server_properties(state: &ProgState) -> Result<Vec<String>, Error> {
     let selected_ark_server = get_server(state).expect("Server has mod");
     let props = vec![
