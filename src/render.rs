@@ -68,7 +68,7 @@ pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state:
             MenuItem::Home => {
                 state.menu_titles = vec!["Home", "List Servers", "Quit"];
                 state.active_menu_highlight = MenuItem::Home;
-                rect.render_widget(home(), chunks[1]);
+                rect.render_widget(home(state), chunks[1]);
             }
             MenuItem::Servers => {
                 state.menu_titles = vec!["Home", "List Servers", "Add", "Delete", "Quit"];
@@ -124,28 +124,51 @@ pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state:
     Ok(())
 }
 
-pub fn home<'a>() -> Paragraph<'a> {
-    let home = Paragraph::new(vec![
-        Spans::from(vec![Span::raw("")]),
-        Spans::from(vec![Span::raw("Welcome")]),
-        Spans::from(vec![Span::raw("")]),
-        Spans::from(vec![Span::raw("to")]),
-        Spans::from(vec![Span::raw("")]),
-        Spans::from(vec![Span::styled(
-            "ark_server-CLI",
-            Style::default().fg(Color::LightBlue),
-        )]),
-        Spans::from(vec![Span::raw("")]),
-    ])
-    .alignment(Alignment::Center)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
-            .title("Home")
-            .border_type(BorderType::Plain),
-    );
-    home
+pub fn home<'a>(state: &mut ProgState) -> Paragraph<'a> {
+    let servers = get_servers().expect("servers exist");
+    if servers.len() < 1 {
+        let home = Paragraph::new(vec![
+            Spans::from(vec![Span::raw("")]),
+            Spans::from(vec![Span::raw("Welcome")]),
+            Spans::from(vec![Span::raw("")]),
+            Spans::from(vec![Span::raw("to")]),
+            Spans::from(vec![Span::raw("")]),
+            Spans::from(vec![Span::styled(
+                "ark_server-CLI",
+                Style::default().fg(Color::LightBlue),
+            )]),
+            Spans::from(vec![Span::raw("")]),
+        ])
+        .alignment(Alignment::Center)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::White))
+                .title("Home")
+                .border_type(BorderType::Plain),
+        );
+        home
+    }
+    else {
+        let mut server_status = Vec::<Spans>::new();
+        let mut i = 0;
+        for server in servers {
+            state.ark_server_list_state.select(Some(i));
+            let status = status_ark_server(state).unwrap();
+            let line = server.name + " " + &status.to_string();
+            server_status.push(Spans::from(vec![Span::raw(line)]));
+            i = i+1;
+        }
+        let home = Paragraph::new(server_status)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::White))
+                .title("Home")
+                .border_type(BorderType::Plain),
+        );
+        home
+    }
 }
 
 pub fn view_ark_server<'a>(state: &ProgState) -> Table<'a> {
