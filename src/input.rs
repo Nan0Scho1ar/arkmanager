@@ -1,6 +1,6 @@
 use crate::ark::{ProgState, ArkServerMod, Error, MenuItem, Event, InputEvent};
-use crate::service::{start_stop_ark_server, restart_ark_server};
-use crate::db::{get_server, get_server_mod, get_server_mod_properties, get_server_mod_property, get_num_servers, get_num_server_mods, add_ark_server_mod_to_db, remove_ark_server_mod_at_index, get_servers, add_ark_server_to_db, remove_ark_server_at_index, set_server_mod_property};
+use crate::service::{start_ark_server, restart_ark_server, stop_ark_server,status_ark_server};
+use crate::db::{get_server, get_server_mod, get_server_mod_properties, get_server_mod_property, get_num_servers, get_num_server_mods, add_ark_server_mod_to_db, remove_ark_server_mod_at_index, get_servers, add_ark_server_to_db, remove_ark_server_at_index, set_server_mod_property, get_server_property, set_server_property};
 use tui::{ widgets::{ListState, TableState} };
 use crossterm::{ event::{KeyCode} };
 
@@ -17,13 +17,14 @@ pub fn process_input(state: &mut ProgState, input: Event<crossterm::event::KeyEv
                     return Ok(InputEvent::Exit);
                 }
                 KeyCode::Char('h') => state.active_menu_item = MenuItem::Home,
-                KeyCode::Char('s') => state.active_menu_item = MenuItem::Servers,
+                KeyCode::Char('l') => state.active_menu_item = MenuItem::Servers,
                 _ => {
                     match state.active_menu_item {
                         MenuItem::Home => process_home(state, event).expect("Processed home"),
                         MenuItem::ViewServer => process_view_server(state, event).expect("Processed view server"),
                         MenuItem::ViewMod => process_view_mod(state, event).expect("Processed view mod"),
                         MenuItem::EditMod => process_edit_mod(state, event).expect("Processed edit mod"),
+                        MenuItem::EditServer => process_edit_server(state, event).expect("Processed edit server"),
                         MenuItem::ServerMods => process_server_mods(state, event).expect("Processed server mods"),
                         MenuItem::Servers => process_servers(state, event).expect("Processed servers"),
                     }
@@ -39,9 +40,11 @@ pub fn process_server_edits(state: &mut ProgState, input: Event<crossterm::event
     match input {
         Event::Input(event) => match event.code {
             KeyCode::Enter => {
+                set_server_property(state).expect("Property set successfully");
                 state.editing_server = false;
             }
             KeyCode::Backspace => {
+                state.tmp_server_field.pop();
             }
             _ => {
                 state.tmp_server_field += get_input_char(event.code);
@@ -87,6 +90,9 @@ pub fn process_view_server(state: &mut ProgState, event: crossterm::event::KeyEv
         KeyCode::Char('b') => {
             state.active_menu_item = MenuItem::Servers
         }
+        KeyCode::Char('e') => {
+            state.active_menu_item = MenuItem::EditServer
+        }
         _ => {}
     }
     Ok(())
@@ -101,7 +107,10 @@ pub fn process_servers(state: &mut ProgState, event: crossterm::event::KeyEvent)
             remove_ark_server_at_index(state).expect("can remove ark_server");
         }
         KeyCode::Char('s') => {
-            start_stop_ark_server(&state).expect("can start ark_server");
+            start_ark_server(&state).expect("can start ark_server");
+        }
+        KeyCode::Char('k') => {
+            stop_ark_server(&state).expect("can start ark_server");
         }
         KeyCode::Char('r') => {
             restart_ark_server(&state).expect("can restart ark_server");
@@ -143,6 +152,27 @@ pub fn process_server_mods(state: &mut ProgState, event: crossterm::event::KeyEv
         KeyCode::Up => {
             let num_ark_server_mods = get_num_server_mods(&state).expect("Can get seleted server");
             try_change_list_state(KeyCode::Up, &mut state.ark_server_mod_list_state, num_ark_server_mods);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn process_edit_server(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        KeyCode::Char('b') => {
+            state.active_menu_item = MenuItem::ViewServer
+        }
+        KeyCode::Enter => {
+            state.tmp_server_field = get_server_property(state)
+                .expect("Mod has selected property");
+            state.editing_server = true;
+        }
+        KeyCode::Down => {
+            try_change_table_state(KeyCode::Down, &mut state.ark_server_list_edit_state, state.num_ark_server_properties-1);
+        }
+        KeyCode::Up => {
+            try_change_table_state(KeyCode::Up, &mut state.ark_server_list_edit_state, state.num_ark_server_properties-1);
         }
         _ => {}
     }
@@ -237,7 +267,7 @@ fn try_change_list_state(code: KeyCode, list_state: &mut ListState, list_size: u
             if let Some(selected) = list_state.selected() {
                 if list_size < 1 {
                     list_state.select(Some(0));
-                } else if selected >= list_size - 1 {
+                } else if selected >= list_size- 1 {
                     list_state.select(Some(0));
                 } else {
                     list_state.select(Some(selected + 1));
@@ -266,7 +296,7 @@ fn try_change_table_state(code: KeyCode, table_state: &mut TableState, table_siz
             if let Some(selected) = table_state.selected() {
                 if table_size < 1 {
                     table_state.select(Some(0));
-                } else if selected >= table_size - 1 {
+                } else if selected >= table_size {
                     table_state.select(Some(0));
                 } else {
                     table_state.select(Some(selected + 1));

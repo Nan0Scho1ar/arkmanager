@@ -18,9 +18,20 @@ pub fn restart_ark_server(state: &ProgState) -> Result<(), Error> {
     return Err(Error::SelectionError)
 }
 
-pub fn start_stop_ark_server(state: &ProgState) -> Result<(), Error> {
+pub fn start_ark_server(state: &ProgState) -> Result<(), Error> {
     let output = Command::new("systemctl")
-                          .arg("status")
+                          .arg("start")
+                          .arg("arkserver")
+                          .output()
+                          .expect("command failed to start");
+    eprintln!("Server status {}", output.status);
+    return Err(Error::SelectionError)
+}
+
+
+pub fn stop_ark_server(state: &ProgState) -> Result<(), Error> {
+    let output = Command::new("systemctl")
+                          .arg("stop")
                           .arg("arkserver")
                           .output()
                           .expect("command failed to start");
@@ -28,4 +39,19 @@ pub fn start_stop_ark_server(state: &ProgState) -> Result<(), Error> {
 
     eprintln!("Server status {}", output.status);
     return Err(Error::SelectionError)
+}
+
+pub fn status_ark_server(state: &ProgState) -> Result<String, Error> {
+    let output = Command::new("systemctl")
+                          .arg("is-active")
+                          .arg("sshd")
+                          .output()
+                          .expect("command failed to start");
+    let cow = String::from_utf8_lossy(&output.stdout);
+    let mut s = cow.to_string();
+    if s == "" {
+        let cow2 = String::from_utf8_lossy(&output.stderr);
+    }
+    s = cow.to_string();
+    Ok(s)
 }

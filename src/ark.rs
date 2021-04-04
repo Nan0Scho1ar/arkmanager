@@ -83,6 +83,7 @@ pub struct ArkServer {
     pub age: usize,
     pub created_at: DateTime<Utc>,
     pub mods: Vec<ArkServerMod>,
+    pub service_name: String,
 }
 
 impl ArkServer {
@@ -94,6 +95,7 @@ impl ArkServer {
             age: 0,
             created_at: Utc::now(),
             mods: Vec::new(),
+            service_name: "".to_string(),
         }
     }
     pub fn new() -> ArkServer {
@@ -104,6 +106,7 @@ impl ArkServer {
             age: 0,
             created_at: Utc::now(),
             mods: Vec::new(),
+            service_name: "".to_string(),
         }
     }
 }
@@ -115,6 +118,7 @@ pub enum MenuItem {
     ViewServer,
     ServerMods,
     ViewMod,
+    EditServer,
     EditMod,
 }
 
@@ -127,6 +131,7 @@ impl From<MenuItem> for usize {
             MenuItem::ViewServer => 3,
             MenuItem::ViewMod => 4,
             MenuItem::EditMod => 5,
+            MenuItem::EditServer=> 6,
         }
     }
 }
@@ -141,9 +146,10 @@ pub struct ProgState<'a> {
     pub active_menu_item: MenuItem,
     pub active_menu_highlight: MenuItem,
     pub ark_server_list_state: ListState,
-    pub ark_server_list_edit_state: ListState,
+    pub ark_server_list_edit_state: TableState,
     pub ark_server_mod_list_state: ListState,
     pub ark_server_mod_list_edit_state: TableState,
+    pub num_ark_server_properties: usize,
     pub num_ark_server_mod_properties: usize,
 }
 
@@ -154,20 +160,27 @@ impl<'a> ProgState<'a> {
              editing_server: false,
              tmp_mod_field: "".to_string(),
              tmp_server_field: "".to_string(),
-             menu_titles: vec!["Home", "Servers", "Quit"],
+             menu_titles: vec!["Home", "List Servers", "Quit"],
              active_menu_item: MenuItem::Home,
              active_menu_highlight: MenuItem::Home,
              ark_server_list_state: ListState::default(),
-             ark_server_list_edit_state: ListState::default(),
+             ark_server_list_edit_state: TableState::default(),
              ark_server_mod_list_state: ListState::default(),
              ark_server_mod_list_edit_state: TableState::default(),
-             num_ark_server_mod_properties: 5,
+             num_ark_server_properties: 5,
+             num_ark_server_mod_properties: 4,
         };
         rs.ark_server_list_state.select(Some(0));
         rs.ark_server_list_edit_state.select(Some(0));
         rs.ark_server_mod_list_state.select(Some(0));
         rs.ark_server_mod_list_edit_state.select(Some(0));
         return rs;
+    }
+
+    pub fn get_server_edit_index(&self) -> usize {
+        return self.ark_server_list_edit_state
+            .selected()
+            .unwrap();
     }
 
     pub fn get_mod_edit_index(&self) -> usize {

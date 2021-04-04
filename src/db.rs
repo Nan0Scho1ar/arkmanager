@@ -57,6 +57,28 @@ pub fn remove_ark_server_at_index(state: &mut ProgState) -> Result<(), Error> {
 }
 
 
+pub fn set_server_property(state: &mut ProgState) -> Result<(), Error> {
+    if let Some(selected_server) = state.ark_server_list_state.selected() {
+        let db_content = fs::read_to_string(DB_PATH)?;
+        let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
+        match state.ark_server_list_edit_state.selected().unwrap() {
+            0 => parsed[selected_server].id = state.tmp_server_field.parse::<usize>().unwrap(),
+            1 => parsed[selected_server].name = state.tmp_server_field.clone(),
+            2 => parsed[selected_server].category = state.tmp_server_field.clone(),
+            3 => parsed[selected_server].age = state.tmp_server_field.parse::<usize>().unwrap(),
+            4 => parsed[selected_server].service_name = state.tmp_server_field.clone(),
+            _ => {}
+        }
+        fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
+        if selected_server > 0 {
+            state.ark_server_list_state.select(Some(selected_server - 1));
+        }
+        return Ok(())
+    }
+    return Err(Error::SelectionError)
+}
+
+
 pub fn set_server_mod_property(state: &mut ProgState) -> Result<(), Error> {
     if let Some(selected_server) = state.ark_server_list_state.selected() {
         if let Some(selected_mod) = state.ark_server_mod_list_state.selected() {
@@ -81,9 +103,20 @@ pub fn set_server_mod_property(state: &mut ProgState) -> Result<(), Error> {
 
 
 
-pub fn get_server_mod(state: &ProgState) -> Result<ArkServerMod, Error> {
+pub fn get_server_mods(state: &ProgState) -> Result<Vec<ArkServerMod>, Error> {
     let selected_ark_server = get_server(state).expect("server exists");
-    let selected_ark_server_mod = selected_ark_server.mods
+    return Ok(selected_ark_server.mods)
+}
+
+pub fn get_server_mods_str(state: &ProgState) -> Result<String, Error> {
+    let selected_ark_server_mods = get_server_mods(state).expect("Mods exist");
+    let mods_str = selected_ark_server_mods.into_iter().map(|i| i.name + &", ".to_string()).collect::<String>();
+    return Ok(mods_str)
+}
+
+pub fn get_server_mod(state: &ProgState) -> Result<ArkServerMod, Error> {
+    let selected_ark_server_mod = get_server_mods(state)
+        .unwrap()
         .get(
             state.ark_server_mod_list_state
                 .selected()
@@ -92,6 +125,19 @@ pub fn get_server_mod(state: &ProgState) -> Result<ArkServerMod, Error> {
         .expect("exists")
         .clone();
     return Ok(selected_ark_server_mod)
+}
+
+pub fn get_server_properties(state: &ProgState) -> Result<Vec<String>, Error> {
+    let selected_ark_server = get_server(state).expect("Server has mod");
+    let props = vec![
+        selected_ark_server.id.to_string(),
+        selected_ark_server.name.to_string(),
+        selected_ark_server.category.to_string(),
+        selected_ark_server.age.to_string(),
+        selected_ark_server.service_name.to_string(),
+        selected_ark_server.created_at.to_string(),
+    ];
+    Ok(props)
 }
 
 pub fn get_server_mod_properties(state: &ProgState) -> Result<Vec<String>, Error> {
@@ -107,13 +153,21 @@ pub fn get_server_mod_properties(state: &ProgState) -> Result<Vec<String>, Error
 }
 
 pub fn get_server_mod_property(state: &ProgState) -> Result<String, Error> {
-    let selected_ark_server_mod = get_server_mod(state).expect("Server has mod");
     let sel = state.ark_server_mod_list_edit_state
         .selected()
         .unwrap();
     let props = get_server_mod_properties(state).expect("Server mod has properties");
     let selected_ark_server_mod_property = props[sel].clone();
     Ok(selected_ark_server_mod_property)
+}
+
+pub fn get_server_property(state: &ProgState) -> Result<String, Error> {
+    let sel = state.ark_server_list_edit_state
+        .selected()
+        .unwrap();
+    let props = get_server_properties(state).expect("Server has properties");
+    let selected_ark_server_property = props[sel].clone();
+    Ok(selected_ark_server_property)
 }
 
 
