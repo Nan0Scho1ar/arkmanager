@@ -1,13 +1,111 @@
    Compiling ark-manager v0.1.0 (/home/nan0scho1ar/repos/rust-commandline-example)
-warning: associated function is never used: `new`
-  --> src/ark.rs:78:12
-   |
-78 |     pub fn new() -> ArkServer {
-   |            ^^^
-   |
-   = note: `#[warn(dead_code)]` on by default
+error: expected type, found `<[_]>::into_vec(box ["Home", "Servers", "Quit"])`
+   --> src/ark.rs:132:22
+    |
+132 |     pub menu_titles: vec!["Home", "Servers", "Quit"],
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |                      |
+    |                      expected type
+    |                      in this macro invocation
+    |                      this macro call doesn't expand to a type
+    |
+    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
 
-warning: 1 warning emitted
+warning: unused import: `Terminal`
+  --> src/render.rs:11:5
+   |
+11 |     Terminal,
+   |     ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
 
-    Finished dev [unoptimized + debuginfo] target(s) in 3.05s
-     Running `target/debug/ark-manager`
+warning: unused imports: `Event as CEvent`, `KeyCode`, `disable_raw_mode`, `enable_raw_mode`, `self`
+ --> src/ark.rs:6:13
+  |
+6 |     event::{self, Event as CEvent, KeyCode},
+  |             ^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^
+7 |     terminal::{disable_raw_mode, enable_raw_mode},
+  |                ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused imports: `Alignment`, `Block`, `BorderType`, `Borders`, `Color`, `Constraint`, `Direction`, `Layout`, `Modifier`, `Paragraph`, `Span`, `Spans`, `Style`, `Tabs`, `Terminal`, `backend::CrosstermBackend`
+  --> src/ark.rs:10:5
+   |
+10 |     backend::CrosstermBackend,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+11 |     layout::{Alignment, Constraint, Direction, Layout},
+   |              ^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^  ^^^^^^
+12 |     style::{Color, Modifier, Style},
+   |             ^^^^^  ^^^^^^^^  ^^^^^
+13 |     text::{Span, Spans},
+   |            ^^^^  ^^^^^
+14 |     widgets::{
+15 |         Block, BorderType, Borders, ListState, Paragraph, Tabs, TableState,
+   |         ^^^^^  ^^^^^^^^^^  ^^^^^^^             ^^^^^^^^^  ^^^^
+16 |     },
+17 |     Terminal,
+   |     ^^^^^^^^
+
+warning: unused import: `ArkServer`
+ --> src/service.rs:1:18
+  |
+1 | use crate::ark::{ArkServer, Error};
+  |                  ^^^^^^^^^
+
+warning: unused import: `crate::DB_PATH`
+ --> src/service.rs:2:5
+  |
+2 | use crate::DB_PATH;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `std::fs`
+ --> src/service.rs:4:5
+  |
+4 | use std::fs;
+  |     ^^^^^^^
+
+warning: unused imports: `Write`, `self`
+ --> src/service.rs:7:15
+  |
+7 | use std::io::{self, Write};
+  |               ^^^^  ^^^^^
+
+warning: unused import: `read_db`
+ --> src/main.rs:7:105
+  |
+7 | use crate::db::{get_server, get_num_servers,  add_ark_server_mod_to_db, remove_ark_server_mod_at_index, read_db, add_ark_server_to_db, re...
+  |                                                                                                         ^^^^^^^
+
+warning: unused imports: `Alignment`, `Block`, `BorderType`, `Borders`, `Color`, `Constraint`, `Direction`, `Layout`, `Modifier`, `Paragraph`, `Span`, `Spans`, `Style`, `TableState`, `Tabs`
+  --> src/main.rs:21:14
+   |
+21 |     layout::{Alignment, Constraint, Direction, Layout},
+   |              ^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^  ^^^^^^
+22 |     style::{Color, Modifier, Style},
+   |             ^^^^^  ^^^^^^^^  ^^^^^
+23 |     text::{Span, Spans},
+   |            ^^^^  ^^^^^
+24 |     widgets::{
+25 |         Block, BorderType, Borders, ListState, Paragraph, Tabs, TableState,
+   |         ^^^^^  ^^^^^^^^^^  ^^^^^^^             ^^^^^^^^^  ^^^^  ^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> src/render.rs:516:12
+    |
+414 | pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state: &mut RenderState) -> Result<(), Error> {
+    |                                                                                                       ----------------- expected `std::result::Result<(), ark::Error>` because of return type
+...
+516 |     return ();
+    |            ^^
+    |            |
+    |            expected enum `std::result::Result`, found `()`
+    |            help: try using a variant of the expected enum: `Ok(())`
+    |
+    = note:   expected enum `std::result::Result<(), ark::Error>`
+            found unit type `()`
+
+error: aborting due to 2 previous errors; 9 warnings emitted
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `ark-manager`
+
+To learn more, run the command again with --verbose.
