@@ -155,7 +155,7 @@ pub fn home<'a>(state: &mut ProgState) -> Paragraph<'a> {
         for server in servers {
             state.ark_server_list_state.select(Some(i));
             let status = status_ark_server(state).unwrap();
-            let line = server.name + " " + &status.to_string();
+            let line = server.name + ":     " + &status.to_string();
             server_status.push(Spans::from(vec![Span::raw(line)]));
             i = i+1;
         }
