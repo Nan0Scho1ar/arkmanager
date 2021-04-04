@@ -1,16 +1,4 @@
    Compiling ark-manager v0.1.0 (/home/nan0scho1ar/repos/rust-commandline-example)
-error: expected type, found `<[_]>::into_vec(box ["Home", "Servers", "Quit"])`
-   --> src/ark.rs:132:22
-    |
-132 |     pub menu_titles: vec!["Home", "Servers", "Quit"],
-    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |                      |
-    |                      expected type
-    |                      in this macro invocation
-    |                      this macro call doesn't expand to a type
-    |
-    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
-
 warning: unused import: `Terminal`
   --> src/render.rs:11:5
    |
@@ -18,6 +6,36 @@ warning: unused import: `Terminal`
    |     ^^^^^^^^
    |
    = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `ArkServer`
+ --> src/service.rs:1:18
+  |
+1 | use crate::ark::{ArkServer, Error, RenderState};
+  |                  ^^^^^^^^^
+
+warning: unused import: `crate::DB_PATH`
+ --> src/service.rs:2:5
+  |
+2 | use crate::DB_PATH;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `std::fs`
+ --> src/service.rs:4:5
+  |
+4 | use std::fs;
+  |     ^^^^^^^
+
+warning: unused import: `tui::widgets::ListState`
+ --> src/service.rs:5:5
+  |
+5 | use tui::widgets::ListState;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Write`, `self`
+ --> src/service.rs:7:15
+  |
+7 | use std::io::{self, Write};
+  |               ^^^^  ^^^^^
 
 warning: unused imports: `Event as CEvent`, `KeyCode`, `disable_raw_mode`, `enable_raw_mode`, `self`
  --> src/ark.rs:6:13
@@ -45,67 +63,71 @@ warning: unused imports: `Alignment`, `Block`, `BorderType`, `Borders`, `Color`,
 17 |     Terminal,
    |     ^^^^^^^^
 
-warning: unused import: `ArkServer`
- --> src/service.rs:1:18
+warning: unused import: `ArkServerMod`
+ --> src/input.rs:1:31
   |
-1 | use crate::ark::{ArkServer, Error};
-  |                  ^^^^^^^^^
+1 | use crate::ark::{RenderState, ArkServerMod, Error, MenuItem, Event, InputEvent};
+  |                               ^^^^^^^^^^^^
 
-warning: unused import: `crate::DB_PATH`
- --> src/service.rs:2:5
+warning: unused imports: `get_server`, `read_db`
+ --> src/input.rs:3:17
   |
-2 | use crate::DB_PATH;
-  |     ^^^^^^^^^^^^^^
+3 | use crate::db::{get_server, get_num_servers, get_num_server_mods, add_ark_server_mod_to_db, remove_ark_server_mod_at_index, read_db, add_...
+  |                 ^^^^^^^^^^                                                                                                  ^^^^^^^
 
-warning: unused import: `std::fs`
- --> src/service.rs:4:5
+warning: unused variable: `state`
+ --> src/service.rs:9:27
   |
-4 | use std::fs;
-  |     ^^^^^^^
-
-warning: unused imports: `Write`, `self`
- --> src/service.rs:7:15
+9 | pub fn restart_ark_server(state: &RenderState) -> Result<(), Error> {
+  |                           ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
   |
-7 | use std::io::{self, Write};
-  |               ^^^^  ^^^^^
+  = note: `#[warn(unused_variables)]` on by default
 
-warning: unused import: `read_db`
- --> src/main.rs:7:105
-  |
-7 | use crate::db::{get_server, get_num_servers,  add_ark_server_mod_to_db, remove_ark_server_mod_at_index, read_db, add_ark_server_to_db, re...
-  |                                                                                                         ^^^^^^^
-
-warning: unused imports: `Alignment`, `Block`, `BorderType`, `Borders`, `Color`, `Constraint`, `Direction`, `Layout`, `Modifier`, `Paragraph`, `Span`, `Spans`, `Style`, `TableState`, `Tabs`
-  --> src/main.rs:21:14
+warning: unused variable: `state`
+  --> src/service.rs:21:30
    |
-21 |     layout::{Alignment, Constraint, Direction, Layout},
-   |              ^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^  ^^^^^^
-22 |     style::{Color, Modifier, Style},
-   |             ^^^^^  ^^^^^^^^  ^^^^^
-23 |     text::{Span, Spans},
-   |            ^^^^  ^^^^^
-24 |     widgets::{
-25 |         Block, BorderType, Borders, ListState, Paragraph, Tabs, TableState,
-   |         ^^^^^  ^^^^^^^^^^  ^^^^^^^             ^^^^^^^^^  ^^^^  ^^^^^^^^^^
+21 | pub fn start_stop_ark_server(state: &RenderState) -> Result<(), Error> {
+   |                              ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
 
-error[E0308]: mismatched types
-   --> src/render.rs:516:12
+warning: unused variable: `state`
+  --> src/input.rs:73:21
+   |
+73 | pub fn process_home(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+   |                     ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+error[E0507]: cannot move out of index of `Vec<std::string::String>`
+   --> src/render.rs:135:34
     |
-414 | pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state: &mut RenderState) -> Result<(), Error> {
-    |                                                                                                       ----------------- expected `std::result::Result<(), ark::Error>` because of return type
-...
-516 |     return ();
-    |            ^^
-    |            |
-    |            expected enum `std::result::Result`, found `()`
-    |            help: try using a variant of the expected enum: `Ok(())`
+135 |             Cell::from(Span::raw(vals[0])),
+    |                                  ^^^^^^^ move occurs because value has type `std::string::String`, which does not implement the `Copy` trait
+
+error[E0507]: cannot move out of index of `Vec<std::string::String>`
+   --> src/render.rs:139:34
     |
-    = note:   expected enum `std::result::Result<(), ark::Error>`
-            found unit type `()`
+139 |             Cell::from(Span::raw(vals[1])),
+    |                                  ^^^^^^^ move occurs because value has type `std::string::String`, which does not implement the `Copy` trait
 
-error: aborting due to 2 previous errors; 9 warnings emitted
+error[E0507]: cannot move out of index of `Vec<std::string::String>`
+   --> src/render.rs:143:34
+    |
+143 |             Cell::from(Span::raw(vals[2])),
+    |                                  ^^^^^^^ move occurs because value has type `std::string::String`, which does not implement the `Copy` trait
 
-For more information about this error, try `rustc --explain E0308`.
+error[E0507]: cannot move out of index of `Vec<std::string::String>`
+   --> src/render.rs:147:34
+    |
+147 |             Cell::from(Span::raw(vals[3])),
+    |                                  ^^^^^^^ move occurs because value has type `std::string::String`, which does not implement the `Copy` trait
+
+error[E0507]: cannot move out of index of `Vec<std::string::String>`
+   --> src/render.rs:151:34
+    |
+151 |             Cell::from(Span::raw(vals[4])),
+    |                                  ^^^^^^^ move occurs because value has type `std::string::String`, which does not implement the `Copy` trait
+
+error: aborting due to 5 previous errors; 13 warnings emitted
+
+For more information about this error, try `rustc --explain E0507`.
 error: could not compile `ark-manager`
 
 To learn more, run the command again with --verbose.

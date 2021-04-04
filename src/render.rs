@@ -1,5 +1,5 @@
-use crate::ark::{RenderState, ArkServerMod, Error, MenuItem};
-use crate::db::{read_db};
+use crate::ark::{ProgState, ArkServerMod, Error, MenuItem};
+use crate::db::{get_servers, get_server, get_server_mod, get_server_mod_property, get_server_mod_properties};
 use tui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
@@ -37,7 +37,7 @@ pub fn home<'a>() -> Paragraph<'a> {
 }
 
 pub fn view_ark_server<'a>(ark_server_list_state: &ListState) -> Table<'a> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
+    let ark_server_list = get_servers().expect("can fetch ark_server list");
     let selected_ark_server = ark_server_list
         .get(
             ark_server_list_state
@@ -94,46 +94,36 @@ pub fn view_ark_server<'a>(ark_server_list_state: &ListState) -> Table<'a> {
     ark_server_detail
 }
 
-pub fn edit_ark_server_mod<'a>(ark_server_list_state: &ListState, ark_server_mod_list_state: &ListState) -> Table<'a> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
+pub fn edit_ark_server_mod<'a>(state: &ProgState) -> Table<'a> {
+    let sel = state.get_mod_edit_index();
 
-    let selected_ark_server_mod = selected_ark_server.mods
-        .get(
-            ark_server_mod_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
+    let mut vals = get_server_mod_properties(state).expect("server mod has properties");
+        if sel < vals.len() && state.editing_mod {
+        vals[sel] = state.tmp_mod_field.to_string();
+    }
+
+
 
     let ark_server_mod_detail = Table::new(vec![
         Row::new(vec![
             Cell::from(Span::raw("ID:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.id.to_string())),
+            Cell::from(Span::raw(vals[0].clone())),
         ]),
         Row::new(vec![
             Cell::from(Span::raw("Name:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.name)),
+            Cell::from(Span::raw(vals[1].clone())),
         ]),
         Row::new(vec![
             Cell::from(Span::raw("Category:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.category)),
+            Cell::from(Span::raw(vals[2].clone())),
         ]),
         Row::new(vec![
             Cell::from(Span::raw("Age:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.age.to_string())),
+            Cell::from(Span::raw(vals[3].clone())),
         ]),
         Row::new(vec![
             Cell::from(Span::raw("Created At:".to_string())),
-            Cell::from(Span::raw(selected_ark_server_mod.created_at.to_string())),
+            Cell::from(Span::raw(vals[4].clone())),
         ]),
     ])
     .block(
@@ -161,7 +151,7 @@ pub fn edit_ark_server_mod<'a>(ark_server_list_state: &ListState, ark_server_mod
 }
 
 pub fn view_ark_server_mod<'a>(ark_server_list_state: &ListState, ark_server_mod_list_state: &ListState) -> Table<'a> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
+    let ark_server_list = get_servers().expect("can fetch ark_server list");
     let selected_ark_server = ark_server_list
         .get(
             ark_server_list_state
@@ -220,23 +210,15 @@ pub fn view_ark_server_mod<'a>(ark_server_list_state: &ListState, ark_server_mod
     ark_server_mod_detail
 }
 
-pub fn ark_server_mods<'a>(ark_server_list_state: &ListState, ark_server_mod_list_state: &ListState) -> (List<'a>, Table<'a>) {
+pub fn ark_server_mods<'a>(state: &ProgState) -> (List<'a>, Table<'a>) {
     let ark_server_mods = Block::default()
         .borders(Borders::ALL)
         .style(Style::default().fg(Color::White))
         .title("Server Mods")
         .border_type(BorderType::Plain);
 
-    let ark_server_list = read_db().expect("can fetch ark_server list");
 
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
+    let selected_ark_server = get_server(state).expect("server exists");
 
     let items: Vec<_> = selected_ark_server.mods
         .iter()
@@ -255,16 +237,7 @@ pub fn ark_server_mods<'a>(ark_server_list_state: &ListState, ark_server_mod_lis
             .add_modifier(Modifier::BOLD),
     );
 
-    let selected_ark_server_mod = if selected_ark_server.mods.len() > 0 {
-        selected_ark_server.mods
-            .get(
-                ark_server_mod_list_state
-                    .selected()
-                    .expect("there is always a selected ark_server"),
-            )
-            .expect("exists")
-            .clone()
-    } else { ArkServerMod::new() };
+    let selected_ark_server_mod = get_server_mod(state).expect("server mod exists");
 
     let ark_server_mod_detail = if selected_ark_server_mod.id != 0 {
         Table::new(vec![Row::new(vec![
@@ -323,14 +296,15 @@ pub fn ark_server_mods<'a>(ark_server_list_state: &ListState, ark_server_mod_lis
 
 }
 
-pub fn ark_servers<'a>(ark_server_list_state: &ListState) -> (List<'a>, Table<'a>) {
+pub fn ark_servers<'a>(state: &ProgState) -> (List<'a>, Table<'a>) {
     let ark_servers = Block::default()
         .borders(Borders::ALL)
         .style(Style::default().fg(Color::White))
         .title("Servers")
         .border_type(BorderType::Plain);
 
-    let ark_server_list = read_db().expect("can fetch ark_server list");
+    let ark_server_list = get_servers().expect("Servers exist");
+
     let items: Vec<_> = ark_server_list
         .iter()
         .map(|ark_server| {
@@ -341,15 +315,7 @@ pub fn ark_servers<'a>(ark_server_list_state: &ListState) -> (List<'a>, Table<'a
         })
         .collect();
 
-    let selected_ark_server = ark_server_list
-        .get(
-            ark_server_list_state
-                .selected()
-                .expect("there is always a selected ark_server"),
-        )
-        .expect("exists")
-        .clone();
-
+    let selected_ark_server = get_server(state).expect("Server exists");
     let list = List::new(items).block(ark_servers).highlight_style(
         Style::default()
             .bg(Color::Yellow)
@@ -411,7 +377,35 @@ pub fn ark_servers<'a>(ark_server_list_state: &ListState) -> (List<'a>, Table<'a
     (list, ark_server_detail)
 }
 
-pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state: &mut RenderState) -> Result<(), Error> {
+//    let headings = vec![
+//        "ID",
+//        "Name",
+//        "Category",
+//        "Age",
+//        "Created At",
+//        "Mods",
+//    ];
+//    .add_table_header(headings)
+//trait AddTableHeader {
+//    fn add_table_header(&self, headings:Vec<&str>);
+//}
+//
+//impl AddTableHeader for Table<'_> {
+//    fn add_table_header(&self, headings: Vec<&str>) {
+//        let mut row = Vec::<Cell>::new();
+//        for heading in headings {
+//            row.push(
+//                Cell::from(Span::styled(
+//                    heading,
+//                    Style::default().add_modifier(Modifier::BOLD),
+//                )),
+//            );
+//        }
+//        self.header(Row::new(row));
+//    }
+//}
+
+pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state: &mut ProgState) -> Result<(), Error> {
     terminal.draw(|rect| {
         let size = rect.size();
         let chunks = Layout::default()
@@ -477,7 +471,7 @@ pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state:
                         [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                     )
                     .split(chunks[1]);
-                let (left, right) = ark_servers(&state.ark_server_list_state);
+                let (left, right) = ark_servers(&state);
                 rect.render_stateful_widget(left, ark_servers_chunks[0], &mut state.ark_server_list_state);
                 rect.render_widget(right, ark_servers_chunks[1]);
             }
@@ -495,7 +489,7 @@ pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state:
                         [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                     )
                     .split(chunks[1]);
-                let (left, right) = ark_server_mods(&state.ark_server_list_state, &state.ark_server_mod_list_state);
+                let (left, right) = ark_server_mods(&state);
                 rect.render_stateful_widget(left, ark_servers_chunks[0], &mut state.ark_server_mod_list_state);
                 rect.render_widget(right, ark_servers_chunks[1]);
             }
@@ -507,7 +501,7 @@ pub fn render(terminal: &mut tui::Terminal<CrosstermBackend<io::Stdout>>, state:
             MenuItem::EditMod => {
                 state.menu_titles = vec!["Home", "Servers", "Mods", "Back", "Quit"];
                 state.active_menu_highlight = MenuItem::ServerMods;
-                let left = edit_ark_server_mod(&state.ark_server_list_state, &state.ark_server_mod_list_state);
+                let left = edit_ark_server_mod(&state);
                 rect.render_stateful_widget(left, chunks[1], &mut state.ark_server_mod_list_edit_state);
             }
         }

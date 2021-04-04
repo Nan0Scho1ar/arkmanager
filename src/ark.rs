@@ -132,7 +132,7 @@ impl From<MenuItem> for usize {
 }
 
 #[derive(Clone, Debug)]
-pub struct RenderState<'a> {
+pub struct ProgState<'a> {
     pub editing_mod: bool,
     pub editing_server: bool,
     pub tmp_mod_field: String,
@@ -147,9 +147,9 @@ pub struct RenderState<'a> {
     pub num_ark_server_mod_properties: usize,
 }
 
-impl<'a> RenderState<'a> {
-    pub fn new() -> RenderState<'a> {
-        let mut rs = RenderState {
+impl<'a> ProgState<'a> {
+    pub fn new() -> ProgState<'a> {
+        let mut rs = ProgState {
              editing_mod: false,
              editing_server: false,
              tmp_mod_field: "".to_string(),
@@ -168,5 +168,11 @@ impl<'a> RenderState<'a> {
         rs.ark_server_mod_list_state.select(Some(0));
         rs.ark_server_mod_list_edit_state.select(Some(0));
         return rs;
+    }
+
+    pub fn get_mod_edit_index(&self) -> usize {
+        return self.ark_server_mod_list_edit_state
+            .selected()
+            .unwrap();
     }
 }

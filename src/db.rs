@@ -1,16 +1,16 @@
-use crate::ark::{ArkServer, ArkServerMod, Error, RenderState};
+use crate::ark::{ArkServer, ArkServerMod, Error, ProgState};
 use crate::DB_PATH;
 
 use std::fs;
 
-pub fn read_db() -> Result<Vec<ArkServer>, Error> {
+pub fn get_servers() -> Result<Vec<ArkServer>, Error> {
     let db_content = fs::read_to_string(DB_PATH)?;
     let parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
     Ok(parsed)
 }
 
-pub fn get_server(state: &RenderState) -> Result<ArkServer, Error> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
+pub fn get_server(state: &ProgState) -> Result<ArkServer, Error> {
+    let ark_server_list = get_servers().expect("can fetch ark_server list");
     let selected_ark_server = ark_server_list
         .get(
             state.ark_server_list_state
@@ -23,12 +23,12 @@ pub fn get_server(state: &RenderState) -> Result<ArkServer, Error> {
 }
 
 pub fn get_num_servers() -> Result<usize, Error> {
-    let ark_server_list = read_db().expect("can fetch ark_server list");
+    let ark_server_list = get_servers().expect("can fetch ark_server list");
     let num_ark_servers = ark_server_list.len();
     return Ok(num_ark_servers);
 }
 
-pub fn get_num_server_mods(state: &RenderState) -> Result<usize, Error> {
+pub fn get_num_server_mods(state: &ProgState) -> Result<usize, Error> {
     let selected_ark_server = get_server(state).expect("Can get seleted server");
     let num_ark_server_mods = selected_ark_server.mods.len();
     return Ok(num_ark_server_mods);
@@ -42,19 +42,85 @@ pub fn add_ark_server_to_db() -> Result<Vec<ArkServer>, Error> {
     Ok(parsed)
 }
 
-pub fn remove_ark_server_at_index(state: &mut RenderState) -> Result<(), Error> {
+pub fn remove_ark_server_at_index(state: &mut ProgState) -> Result<(), Error> {
     if let Some(selected) = state.ark_server_list_state.selected() {
         let db_content = fs::read_to_string(DB_PATH)?;
         let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
         parsed.remove(selected);
         fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
-        state.ark_server_list_state.select(Some(selected - 1));
+        if selected > 0 {
+            state.ark_server_list_state.select(Some(selected - 1));
+        }
         return Ok(())
     }
     return Err(Error::SelectionError)
 }
 
-pub fn add_ark_server_mod_to_db(state: &RenderState) -> Result<Vec<ArkServer>, Error> {
+
+pub fn set_server_mod_property(state: &mut ProgState) -> Result<(), Error> {
+    if let Some(selected_server) = state.ark_server_list_state.selected() {
+        if let Some(selected_mod) = state.ark_server_mod_list_state.selected() {
+            let db_content = fs::read_to_string(DB_PATH)?;
+            let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
+            match state.ark_server_mod_list_edit_state.selected().unwrap() {
+                0 => parsed[selected_server].mods[selected_mod].id = state.tmp_mod_field.parse::<usize>().unwrap(),
+                1 => parsed[selected_server].mods[selected_mod].name = state.tmp_mod_field.clone(),
+                2 => parsed[selected_server].mods[selected_mod].category = state.tmp_mod_field.clone(),
+                3 => parsed[selected_server].mods[selected_mod].age = state.tmp_mod_field.parse::<usize>().unwrap(),
+                _ => {}
+            }
+            fs::write(DB_PATH, &serde_json::to_vec(&parsed)?)?;
+            if selected_mod > 0 {
+                state.ark_server_mod_list_state.select(Some(selected_mod - 1));
+            }
+            return Ok(())
+        }
+    }
+    return Err(Error::SelectionError)
+}
+
+
+
+pub fn get_server_mod(state: &ProgState) -> Result<ArkServerMod, Error> {
+    let selected_ark_server = get_server(state).expect("server exists");
+    let selected_ark_server_mod = selected_ark_server.mods
+        .get(
+            state.ark_server_mod_list_state
+                .selected()
+                .expect("there is always a selected ark_server"),
+        )
+        .expect("exists")
+        .clone();
+    return Ok(selected_ark_server_mod)
+}
+
+pub fn get_server_mod_properties(state: &ProgState) -> Result<Vec<String>, Error> {
+    let selected_ark_server_mod = get_server_mod(state).expect("Server has mod");
+    let props = vec![
+        selected_ark_server_mod.id.to_string(),
+        selected_ark_server_mod.name.to_string(),
+        selected_ark_server_mod.category.to_string(),
+        selected_ark_server_mod.age.to_string(),
+        selected_ark_server_mod.created_at.to_string(),
+    ];
+    Ok(props)
+}
+
+pub fn get_server_mod_property(state: &ProgState) -> Result<String, Error> {
+    let selected_ark_server_mod = get_server_mod(state).expect("Server has mod");
+    let sel = state.ark_server_mod_list_edit_state
+        .selected()
+        .unwrap();
+    let props = get_server_mod_properties(state).expect("Server mod has properties");
+    let selected_ark_server_mod_property = props[sel].clone();
+    Ok(selected_ark_server_mod_property)
+}
+
+
+
+
+
+pub fn add_ark_server_mod_to_db(state: &ProgState) -> Result<Vec<ArkServer>, Error> {
     if let Some(selected_server) = state.ark_server_list_state.selected() {
         let db_content = fs::read_to_string(DB_PATH)?;
         let mut parsed: Vec<ArkServer> = serde_json::from_str(&db_content)?;
@@ -65,7 +131,7 @@ pub fn add_ark_server_mod_to_db(state: &RenderState) -> Result<Vec<ArkServer>, E
     return Err(Error::SelectionError)
 }
 
-pub fn remove_ark_server_mod_at_index(state: &mut RenderState) -> Result<(), Error> {
+pub fn remove_ark_server_mod_at_index(state: &mut ProgState) -> Result<(), Error> {
     if let Some(selected_server) = state.ark_server_list_state.selected() {
         if let Some(selected_mod) = state.ark_server_mod_list_state.selected() {
             let db_content = fs::read_to_string(DB_PATH)?;

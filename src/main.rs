@@ -4,7 +4,7 @@ mod service;
 mod ark;
 mod input;
 
-use crate::ark::{Event, RenderState, InputEvent};
+use crate::ark::{Event, ProgState, InputEvent};
 use crate::render::{render};
 use crate::input::{process_input};
 
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.clear()?;
 
 
-    let mut state = RenderState::new();
+    let mut state = ProgState::new();
 
     loop {
         render(&mut terminal, &mut state).expect("Renders successfully");

@@ -1,11 +1,11 @@
-use crate::ark::{RenderState, ArkServerMod, Error, MenuItem, Event, InputEvent};
+use crate::ark::{ProgState, ArkServerMod, Error, MenuItem, Event, InputEvent};
 use crate::service::{start_stop_ark_server, restart_ark_server};
-use crate::db::{get_server, get_num_servers, get_num_server_mods, add_ark_server_mod_to_db, remove_ark_server_mod_at_index, read_db, add_ark_server_to_db, remove_ark_server_at_index};
+use crate::db::{get_server, get_server_mod, get_server_mod_properties, get_server_mod_property, get_num_servers, get_num_server_mods, add_ark_server_mod_to_db, remove_ark_server_mod_at_index, get_servers, add_ark_server_to_db, remove_ark_server_at_index, set_server_mod_property};
 use tui::{ widgets::{ListState, TableState} };
 use crossterm::{ event::{KeyCode} };
 
 //Process user input
-pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
+pub fn process_input(state: &mut ProgState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
     if state.editing_server {
         process_server_edits(state, input).expect("Server edit processed");
     } else if state.editing_mod {
@@ -35,7 +35,7 @@ pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::Key
     Ok(InputEvent::Other)
 }
 
-pub fn process_server_edits(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
+pub fn process_server_edits(state: &mut ProgState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
     match input {
         Event::Input(event) => match event.code {
             KeyCode::Enter => {
@@ -52,13 +52,15 @@ pub fn process_server_edits(state: &mut RenderState, input: Event<crossterm::eve
     Ok(InputEvent::Other)
 }
 
-pub fn process_mod_edits(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
+pub fn process_mod_edits(state: &mut ProgState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
     match input {
         Event::Input(event) => match event.code {
             KeyCode::Enter => {
+                set_server_mod_property(state).expect("Property set successfully");
                 state.editing_mod = false;
             }
             KeyCode::Backspace => {
+                state.tmp_mod_field.pop();
             }
             _ => {
                 state.tmp_mod_field += get_input_char(event.code);
@@ -69,14 +71,14 @@ pub fn process_mod_edits(state: &mut RenderState, input: Event<crossterm::event:
     Ok(InputEvent::Other)
 }
 
-pub fn process_home(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+pub fn process_home(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
     match event.code {
         _ => {}
     }
     Ok(())
 }
 
-pub fn process_view_server(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+pub fn process_view_server(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
     match event.code {
         KeyCode::Char('m') => {
             state.ark_server_mod_list_state.select(Some(0));
@@ -90,7 +92,7 @@ pub fn process_view_server(state: &mut RenderState, event: crossterm::event::Key
     Ok(())
 }
 
-pub fn process_servers(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+pub fn process_servers(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
     match event.code {
         KeyCode::Char('a') => {
             add_ark_server_to_db().expect("can add new random ark_server");
@@ -120,7 +122,7 @@ pub fn process_servers(state: &mut RenderState, event: crossterm::event::KeyEven
     Ok(())
 }
 
-pub fn process_server_mods(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+pub fn process_server_mods(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
     match event.code {
         KeyCode::Char('a') => {
             add_ark_server_mod_to_db(&state).expect("can add new random ark_server");
@@ -147,12 +149,14 @@ pub fn process_server_mods(state: &mut RenderState, event: crossterm::event::Key
     Ok(())
 }
 
-pub fn process_edit_mod(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+pub fn process_edit_mod(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
     match event.code {
         KeyCode::Char('b') => {
             state.active_menu_item = MenuItem::ViewMod
         }
         KeyCode::Enter => {
+            state.tmp_mod_field = get_server_mod_property(state)
+                .expect("Mod has selected property");
             state.editing_mod = true;
         }
         KeyCode::Down => {
@@ -166,7 +170,7 @@ pub fn process_edit_mod(state: &mut RenderState, event: crossterm::event::KeyEve
     Ok(())
 }
 
-pub fn process_view_mod(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+pub fn process_view_mod(state: &mut ProgState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
     match event.code {
         KeyCode::Char('b') => {
             state.active_menu_item = MenuItem::ServerMods
