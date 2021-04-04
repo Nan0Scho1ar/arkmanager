@@ -4,6 +4,36 @@ use crate::db::{get_server, get_num_servers, get_num_server_mods, add_ark_server
 use tui::{ widgets::{ListState, TableState} };
 use crossterm::{ event::{KeyCode} };
 
+//Process user input
+pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
+    if state.editing_server {
+        process_server_edits(state, input).expect("Server edit processed");
+    } else if state.editing_mod {
+        process_mod_edits(state, input).expect("Mod edit processed");
+    } else {
+        match input {
+            Event::Input(event) => match event.code {
+                KeyCode::Char('q') => {
+                    return Ok(InputEvent::Exit);
+                }
+                KeyCode::Char('h') => state.active_menu_item = MenuItem::Home,
+                KeyCode::Char('s') => state.active_menu_item = MenuItem::Servers,
+                _ => {
+                    match state.active_menu_item {
+                        MenuItem::Home => process_home(state, event).expect("Processed home"),
+                        MenuItem::ViewServer => process_view_server(state, event).expect("Processed view server"),
+                        MenuItem::ViewMod => process_view_mod(state, event).expect("Processed view mod"),
+                        MenuItem::EditMod => process_edit_mod(state, event).expect("Processed edit mod"),
+                        MenuItem::ServerMods => process_server_mods(state, event).expect("Processed server mods"),
+                        MenuItem::Servers => process_servers(state, event).expect("Processed servers"),
+                    }
+                }
+            },
+            Event::Tick => {}
+        }
+    }
+    Ok(InputEvent::Other)
+}
 
 pub fn process_server_edits(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
     match input {
@@ -39,130 +69,117 @@ pub fn process_mod_edits(state: &mut RenderState, input: Event<crossterm::event:
     Ok(InputEvent::Other)
 }
 
-//Process user input
-pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
-    if state.editing_server {
-        process_server_edits(state, input);
-    } else if state.editing_mod {
-        process_mod_edits(state, input);
-    } else {
-        match input {
-            Event::Input(event) => match event.code {
-                KeyCode::Char('q') => {
-                    return Ok(InputEvent::Exit);
-                }
-                KeyCode::Char('h') => state.active_menu_item = MenuItem::Home,
-                KeyCode::Char('s') => state.active_menu_item = MenuItem::Servers,
-                _ => {
-                    match state.active_menu_item {
-                        MenuItem::Home => {
-                            match event.code {
-                                _ => {}
-                            }
-                        }
-                        MenuItem::ViewServer => {
-                            match event.code {
-                                KeyCode::Char('m') => {
-                                    state.ark_server_mod_list_state.select(Some(0));
-                                    state.active_menu_item = MenuItem::ServerMods
-                                }
-                                KeyCode::Char('b') => {
-                                    state.active_menu_item = MenuItem::Servers
-                                }
-                                _ => {}
-                            }
-                        }
-                        MenuItem::ViewMod => {
-                            match event.code {
-                                KeyCode::Char('b') => {
-                                    state.active_menu_item = MenuItem::ServerMods
-                                }
-                                KeyCode::Char('t') => {
-                                    //TODO Toggle server mod
-                                }
-                                KeyCode::Char('e') => {
-                                    state.active_menu_item = MenuItem::EditMod
-                                }
-                                _ => {}
-                            }
-                        }
-                        MenuItem::EditMod => {
-                            match event.code {
-                                KeyCode::Char('b') => {
-                                    state.active_menu_item = MenuItem::ViewMod
-                                }
-                                KeyCode::Enter => {
-                                    state.editing_mod = true;
-                                }
-                                KeyCode::Down => {
-                                    try_change_table_state(KeyCode::Down, &mut state.ark_server_mod_list_edit_state, state.num_ark_server_mod_properties-1);
-                                }
-                                KeyCode::Up => {
-                                    try_change_table_state(KeyCode::Up, &mut state.ark_server_mod_list_edit_state, state.num_ark_server_mod_properties-1);
-                                }
-                                _ => {}
-                            }
-                        }
-                        MenuItem::ServerMods => {
-                            match event.code {
-                                KeyCode::Char('a') => {
-                                    add_ark_server_mod_to_db(&state).expect("can add new random ark_server");
-                                }
-                                KeyCode::Char('d') => {
-                                    remove_ark_server_mod_at_index(state).expect("can remove ark_server mod");
-                                }
-                                KeyCode::Char('b') => {
-                                    state.active_menu_item = MenuItem::ViewServer
-                                }
-                                KeyCode::Enter => {
-                                    state.active_menu_item = MenuItem::ViewMod;
-                                }
-                                KeyCode::Down => {
-                                    let num_ark_server_mods = get_num_server_mods(&state).expect("Can get seleted server");
-                                    try_change_list_state(KeyCode::Down, &mut state.ark_server_mod_list_state, num_ark_server_mods);
-                                }
-                                KeyCode::Up => {
-                                    let num_ark_server_mods = get_num_server_mods(&state).expect("Can get seleted server");
-                                    try_change_list_state(KeyCode::Up, &mut state.ark_server_mod_list_state, num_ark_server_mods);
-                                }
-                                _ => {}
-                            }
-                        }
-                        MenuItem::Servers => {
-                            match event.code {
-                                KeyCode::Char('a') => {
-                                    add_ark_server_to_db().expect("can add new random ark_server");
-                                }
-                                KeyCode::Char('d') => {
-                                    remove_ark_server_at_index(state).expect("can remove ark_server");
-                                }
-                                KeyCode::Char('s') => {
-                                    start_stop_ark_server(&state).expect("can start ark_server");
-                                }
-                                KeyCode::Char('r') => {
-                                    restart_ark_server(&state).expect("can restart ark_server");
-                                }
-                                KeyCode::Enter => {
-                                    state.active_menu_item = MenuItem::ViewServer;
-                                }
-                                KeyCode::Down => {
-                                    let num_ark_servers = get_num_servers().expect("can fetch ark_server list length");
-                                    try_change_list_state(KeyCode::Down, &mut state.ark_server_list_state, num_ark_servers);
-                                }
-                                KeyCode::Up => {
-                                    let num_ark_servers = get_num_servers().expect("can fetch ark_server list length");
-                                    try_change_list_state(KeyCode::Up, &mut state.ark_server_list_state, num_ark_servers);
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            },
-            Event::Tick => {}
-        }
+pub fn process_home(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        _ => {}
     }
-    Ok(InputEvent::Other)
+    Ok(())
+}
+
+pub fn process_view_server(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        KeyCode::Char('m') => {
+            state.ark_server_mod_list_state.select(Some(0));
+            state.active_menu_item = MenuItem::ServerMods
+        }
+        KeyCode::Char('b') => {
+            state.active_menu_item = MenuItem::Servers
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn process_servers(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        KeyCode::Char('a') => {
+            add_ark_server_to_db().expect("can add new random ark_server");
+        }
+        KeyCode::Char('d') => {
+            remove_ark_server_at_index(state).expect("can remove ark_server");
+        }
+        KeyCode::Char('s') => {
+            start_stop_ark_server(&state).expect("can start ark_server");
+        }
+        KeyCode::Char('r') => {
+            restart_ark_server(&state).expect("can restart ark_server");
+        }
+        KeyCode::Enter => {
+            state.active_menu_item = MenuItem::ViewServer;
+        }
+        KeyCode::Down => {
+            let num_ark_servers = get_num_servers().expect("can fetch ark_server list length");
+            try_change_list_state(KeyCode::Down, &mut state.ark_server_list_state, num_ark_servers);
+        }
+        KeyCode::Up => {
+            let num_ark_servers = get_num_servers().expect("can fetch ark_server list length");
+            try_change_list_state(KeyCode::Up, &mut state.ark_server_list_state, num_ark_servers);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn process_server_mods(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        KeyCode::Char('a') => {
+            add_ark_server_mod_to_db(&state).expect("can add new random ark_server");
+        }
+        KeyCode::Char('d') => {
+            remove_ark_server_mod_at_index(state).expect("can remove ark_server mod");
+        }
+        KeyCode::Char('b') => {
+            state.active_menu_item = MenuItem::ViewServer
+        }
+        KeyCode::Enter => {
+            state.active_menu_item = MenuItem::ViewMod;
+        }
+        KeyCode::Down => {
+            let num_ark_server_mods = get_num_server_mods(&state).expect("Can get seleted server");
+            try_change_list_state(KeyCode::Down, &mut state.ark_server_mod_list_state, num_ark_server_mods);
+        }
+        KeyCode::Up => {
+            let num_ark_server_mods = get_num_server_mods(&state).expect("Can get seleted server");
+            try_change_list_state(KeyCode::Up, &mut state.ark_server_mod_list_state, num_ark_server_mods);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn process_edit_mod(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        KeyCode::Char('b') => {
+            state.active_menu_item = MenuItem::ViewMod
+        }
+        KeyCode::Enter => {
+            state.editing_mod = true;
+        }
+        KeyCode::Down => {
+            try_change_table_state(KeyCode::Down, &mut state.ark_server_mod_list_edit_state, state.num_ark_server_mod_properties-1);
+        }
+        KeyCode::Up => {
+            try_change_table_state(KeyCode::Up, &mut state.ark_server_mod_list_edit_state, state.num_ark_server_mod_properties-1);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn process_view_mod(state: &mut RenderState, event: crossterm::event::KeyEvent) -> Result<(), Error> {
+    match event.code {
+        KeyCode::Char('b') => {
+            state.active_menu_item = MenuItem::ServerMods
+        }
+        KeyCode::Char('t') => {
+            //TODO Toggle server mod
+        }
+        KeyCode::Char('e') => {
+            state.active_menu_item = MenuItem::EditMod
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 //There has to be a better way to do this but I can't find it.
