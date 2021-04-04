@@ -4,37 +4,47 @@ use crate::db::{get_server, get_num_servers, get_num_server_mods, add_ark_server
 use tui::{ widgets::{ListState, TableState} };
 use crossterm::{ event::{KeyCode} };
 
+
+pub fn process_server_edits(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
+    match input {
+        Event::Input(event) => match event.code {
+            KeyCode::Enter => {
+                state.editing_server = false;
+            }
+            KeyCode::Backspace => {
+            }
+            _ => {
+                state.tmp_server_field += get_input_char(event.code);
+            }
+        },
+        Event::Tick => {}
+    }
+    Ok(InputEvent::Other)
+}
+
+pub fn process_mod_edits(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
+    match input {
+        Event::Input(event) => match event.code {
+            KeyCode::Enter => {
+                state.editing_mod = false;
+            }
+            KeyCode::Backspace => {
+            }
+            _ => {
+                state.tmp_mod_field += get_input_char(event.code);
+            }
+        },
+        Event::Tick => {}
+    }
+    Ok(InputEvent::Other)
+}
+
 //Process user input
 pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::KeyEvent>) -> Result<InputEvent, Error> {
     if state.editing_server {
-        match input {
-            Event::Input(event) => match event.code {
-                KeyCode::Enter => {
-                    state.editing_server = false;
-                }
-                KeyCode::Backspace => {
-                }
-                _ => {
-                    state.tmp_server_field += get_input_char(event.code);
-                }
-            },
-            Event::Tick => {}
-        }
+        process_server_edits(state, input);
     } else if state.editing_mod {
-        match input {
-            Event::Input(event) => match event.code {
-                KeyCode::Enter => {
-                    state.editing_mod = false;
-                }
-                KeyCode::Backspace => {
-                }
-                _ => {
-                    state.tmp_mod_field += get_input_char(event.code);
-                }
-            },
-            Event::Tick => {}
-        }
-
+        process_mod_edits(state, input);
     } else {
         match input {
             Event::Input(event) => match event.code {
@@ -99,7 +109,7 @@ pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::Key
                                     add_ark_server_mod_to_db(&state).expect("can add new random ark_server");
                                 }
                                 KeyCode::Char('d') => {
-                                    remove_ark_server_mod_at_index(&mut state).expect("can remove ark_server mod");
+                                    remove_ark_server_mod_at_index(state).expect("can remove ark_server mod");
                                 }
                                 KeyCode::Char('b') => {
                                     state.active_menu_item = MenuItem::ViewServer
@@ -124,7 +134,7 @@ pub fn process_input(state: &mut RenderState, input: Event<crossterm::event::Key
                                     add_ark_server_to_db().expect("can add new random ark_server");
                                 }
                                 KeyCode::Char('d') => {
-                                    remove_ark_server_at_index(&mut state).expect("can remove ark_server");
+                                    remove_ark_server_at_index(state).expect("can remove ark_server");
                                 }
                                 KeyCode::Char('s') => {
                                     start_stop_ark_server(&state).expect("can start ark_server");
