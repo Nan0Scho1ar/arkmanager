@@ -34,9 +34,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
 
-            if event::poll(timeout).expect("poll works") {
-                if let CEvent::Key(key) = event::read().expect("can read events") {
-                    tx.send(Event::Input(key)).expect("can send events");
+            if event::poll(timeout).expect("poll failed") {
+                if let CEvent::Key(key) = event::read().expect("can't read events") {
+                    tx.send(Event::Input(key)).expect("can't send events");
                 }
             }
 
